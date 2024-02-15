@@ -1,106 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from "react";
+import NewPlantForm from "./NewPlantForm";
+import PlantList from "./PlantList";
+import Search from "./Search";
 
-function PlantPage({ plants }) {
-  const [name, setName] = useState('');
-  const [image, setImage] = useState('');
-  const [price, setPrice] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [plantStock, setPlantStock] = useState({});
+export default function PlantPage({plants, addPlant}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filteredPlants, setFilteredPlants] = useState(plants);
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    
-    try {
-      // Make a POST request to add the new plant
-      const response = await fetch('http://localhost:6001/plants', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name,
-          image,
-          price,
-        }),
+  useEffect(() => {
+    const filtered = plants.filter((plant) =>
+    plant.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    setFilteredPlants(filtered);
+  }, [searchQuery, plants]);
+
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+  };
+
+  const updatePlantPrice = (plantId, number) => {
+    fetch(`http://localhost:6001/plants/${plantId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/JSON"},
+      body: JSON.stringify({"price": number }),
+    })
+    .then((resp) => resp.json())
+    .then((updatedPlant) => {
+      setFilteredPlants((prevPlants) =>
+      prevPlants.map((plant) =>
+      plant.id === updatedPlant.id ? updatedPlant : plant
+      )
+      );
+    })
+  };
+    const deletePlant = (plantId) => {
+      fetch(`http://localhost:6001/plants/${plantId}`, {
+        method:"DELETE",
+      })
+      .then((resp) => {
+        if (resp.ok) {
+          setFilteredPlants((originalPlants) =>
+            originalPlants.filter((plant) => plant.id !== plantId)
+          );
+        } else {
+          console.error("Failed to delete plant");
+        }
       });
+    };
 
-      // Check if the request was successful
-      if (!response.ok) {
-        throw new Error('Failed to add plant');
-      }
 
-      // Reset form fields after successful submission
-      setName('');
-      setImage('');
-      setPrice('');
-    } catch (error) {
-      console.error('Error adding plant:', error);
-    }
-  };
-
-  const toggleStockStatus = (id) => {
-    setPlantStock(prevState => ({
-      ...prevState,
-      [id]: !prevState[id]
-    }));
-  };
-
-  const filteredPlants = plants.filter((plant) =>
-    plant.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
-    <div className="plant-page">
-      <div className='new-plant-form'>
-      <h2>New Plant</h2>
-      <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          placeholder="Plant name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <input
-          type="text"
-          placeholder="Image URL"
-          value={image}
-          onChange={(e) => setImage(e.target.value)}
-        />
-        <input
-          type="number"
-          placeholder="Price"
-          step="0.01"
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-        />
-        <button type="submit">Add Plant</button>
-      </form>
-      </div>
-      <div className="plant-list">
-        <input
-          type="text"
-          placeholder="Search..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <ul className='cards'>
-          {filteredPlants.map((plant) => (
-            <li className='card' key={plant.id}>
-              <h3>{plant.name}</h3>
-              <img src={plant.image} alt={plant.name} />
-              <p>Price: ${plant.price}</p>
-              <button
-                className={plantStock[plant.id] ? 'primary' : ''}
-                onClick={() => toggleStockStatus(plant.id)}
-              >
-                {plantStock[plant.id] ? 'In Stock' : 'Out of Stock'}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
+    <main>
+      <NewPlantForm addPlant={addPlant}/>
+      <Search onChange={handleSearch}/>
+      <PlantList plants={filteredPlants} updatePlantPrice={updatePlantPrice} deletePlant={deletePlant}/>
+    </main>
   );
 }
-
-export default PlantPage;
